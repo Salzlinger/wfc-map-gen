@@ -7,7 +7,7 @@ const useWaveFunctionCollapse = () => {
     const outputDimWidth = 96
     const outputDimHight = 50
     const sizeFactor = 9
-    const PatterDim = 3 // N
+    const patternDim = 3 // N
 
     /**
     * The variable W probably stands for "Wave" in the context 
@@ -22,6 +22,13 @@ const useWaveFunctionCollapse = () => {
         const newWave = new Map(wave);
     
         newWave.set(index, wavePatterns);
+    
+        setWave(newWave);
+    };
+
+    const updateWaveForCell = (cellIndex: number, newPatternId: number) => {
+        const newWave = new Map(wave);
+        newWave.set(cellIndex, new Set([newPatternId]));
     
         setWave(newWave);
     };
@@ -51,6 +58,13 @@ const useWaveFunctionCollapse = () => {
     */
     const [entropy, setEntropy] = useState<Entropy>(new Map())
 
+    const updateEntropyForCell = (cellIndex: number, newEntropyValue: number) => {
+        const newEntropy = new Map(entropy);
+        newEntropy.set(cellIndex, newEntropyValue);
+    
+        setEntropy(newEntropy);
+    };
+
     /**
     * patterns would be the collection of unique tiles or states 
     that cells in the grid can collapse into. These are usually 
@@ -76,6 +90,26 @@ const useWaveFunctionCollapse = () => {
     const [cellDimentionX, setCellDimentionX] = useState<number>()
     const [cellDimentionY, setCellDimentionY] = useState<number>()
 
+        /**
+    * This variable likely stores the possible directions for 
+    adjacency. In a grid, this usually includes directions like up, 
+    down, left, and right. It's used to determine neighboring cells 
+    relative to a given cell.
+    */
+    const directions: [number, number][] = [
+        [-1, 0],  // Left
+        [1, 0],   // Right
+        [0, -1],  // Up
+        [0, 1]    // Down
+    ];
+
+    const directionMapping: {[key: string]: number} = {
+        '[-1, 0]': 0, // Left
+        '[1, 0]': 1,  // Right
+        '[0, -1]': 2, // Up
+        '[0, 1]': 3   // Down
+    };
+    
 
     const setup = () => {
         /**
@@ -124,26 +158,15 @@ const useWaveFunctionCollapse = () => {
 
         let kernel: number[][] = [];
 
-        for (let n = 0; n < PatterDim; n++) {
+        for (let n = 0; n < patternDim; n++) {
             let row: number[] = [];
-            for (let i = 0; i < PatterDim; i++) {
+            for (let i = 0; i < patternDim; i++) {
                 row.push(i + n * imageWidth);
             }
             kernel.push(row);
         }
 
-        /**
-        * This variable likely stores the possible directions for 
-        adjacency. In a grid, this usually includes directions like up, 
-        down, left, and right. It's used to determine neighboring cells 
-        relative to a given cell.
-        */
-        const directions: [number, number][] = [
-            [-1, 0],  // Left
-            [1, 0],   // Right
-            [0, -1],  // Up
-            [0, 1]    // Down
-        ];
+
         
         /**
         * Stores the different patterns found in input 
@@ -299,7 +322,7 @@ const useWaveFunctionCollapse = () => {
             for (let i = 0; i < numberOfUniquePatterns; i++) {
                 for (let j = 0; j < numberOfUniquePatterns; j++) {
                     // Check horizontal adjacency (Left and Right)
-                    if (patterns[i].slice(0, -PatterDim).every((val, index) => val === patterns[j].slice(PatterDim)[index])) {
+                    if (patterns[i].slice(0, -patternDim).every((val, index) => val === patterns[j].slice(patternDim)[index])) {
                         // Access the map for pattern i and pattern j
                         const adjacencyMapI = adjacencies[i];
                         const adjacencyMapJ = adjacencies[j];
@@ -312,8 +335,8 @@ const useWaveFunctionCollapse = () => {
             
                     // Check vertical adjacency (Top and Bottom)
                     let isTopBottomAdjacent = true;
-                    for (let row = 0; row < PatterDim - 1; row++) {
-                        if (!patterns[i].slice(row * PatterDim, (row + 1) * PatterDim).every((val, index) => val === patterns[j].slice((row + 1) * PatterDim, (row + 2) * PatterDim)[index])) {
+                    for (let row = 0; row < patternDim - 1; row++) {
+                        if (!patterns[i].slice(row * patternDim, (row + 1) * patternDim).every((val, index) => val === patterns[j].slice((row + 1) * patternDim, (row + 2) * patternDim)[index])) {
                             isTopBottomAdjacent = false;
                             break;
                         }
@@ -371,17 +394,25 @@ const useWaveFunctionCollapse = () => {
         return null
     };
 
-    const updateWaveForCell = (cellIndex: number, newPatternId: number) => {
-        const newWave = new Map(wave);
-        newWave.set(cellIndex, new Set([newPatternId]));
-    
-        setWave(newWave);
+    const isSubSetOf = (subset: Set<number>, superset: Set<number>): boolean => {
+        return Array.from(subset).every(elem => superset.has(elem));
     };
+
+    const intersectSets = (setA: Set<number>, setB: Set<number>): Set<number> => {
+        const intersection = new Set<number>();
+        setA.forEach(elem => {
+            if (setB.has(elem)) {
+                intersection.add(elem);
+            }
+        });
+        return intersection;
+    };
+    
     
 
     const draw = () => {
         if (!entropy || entropy.size === 0) {
-            return null
+            return
         } 
 
     }
@@ -421,7 +452,7 @@ const useWaveFunctionCollapse = () => {
 
         let stack: number[] = [entropyMin];
 
-        while(stack) {
+        while(stack.length > 0) {
 
             /**
             First thing we do is pop() the last index contained in 
@@ -430,9 +461,115 @@ const useWaveFunctionCollapse = () => {
             We have to keep them withing bounds and make sure 
             they wrap around.
             */
-            
+            const currentElementIndex = stack.pop(); // Get the top element of the stack
+            if (currentElementIndex !== undefined) {
+                for (const [dx, dy] of directions) {
+                    const x = (currentElementIndex % outputDimWidth + dx + outputDimWidth) % outputDimWidth;
+                    const y = Math.floor(currentElementIndex / outputDimWidth) + dy;
+                    if (y >= 0 && y < outputDimHight) {
+                        const neighborElementIndex = x + y * outputDimWidth;
+                
+                        /**
+                        We make sure the neighboring cell is not collapsed yet 
+                        (we don't want to update a cell that has only 1 
+                        pattern available)
+                        */
+                        if (entropy.has(neighborElementIndex)) {
+                            /**
+                            Then we check all the patterns that COULD be placed at 
+                            that location. EX: if the neighboring cell is on the left 
+                            of the current cell (east side), we look at all the 
+                            patterns that can be placed on the left of each pattern 
+                            contained in the current cell.
+                            */
+                            let possiblePatterns = new Set<number>();
+                            const currentCellPatterns = wave.get(currentElementIndex);
+                            if (currentCellPatterns) {
+                                const dir = directionMapping[JSON.stringify([dx, dy])];
+                
+                                currentCellPatterns.forEach(idP => {
+                                    const adjacencyMaps = adjacencies[idP];
+                                    if (adjacencyMaps) {
+                                        const adjacencySet = adjacencyMaps.get(idP);
+                                        if (adjacencySet) {
+                                            const possiblePatternsInDirection = adjacencySet[dir];
+                                            possiblePatternsInDirection.forEach(pattern => possiblePatterns.add(pattern));
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            /**
+                            We also look at the patterns that ARE available in the neighboring cell
+                            */
+                            const availablePatterns: Set<number> = new Set(wave.get(neighborElementIndex) ?? []);
+
+                            /**
+                            Now we make sure that the neighboring cell really need to be updated. 
+                            If all its available patterns are already in the list of all the possible patterns:
+                            —> there’s no need to update it (the algorithm skip this neighbor and goes on to the next)
+                            */
+                            if (!isSubSetOf(availablePatterns, possiblePatterns)) {
+
+                                /**
+                                If it is not a subset of the possible list:
+                                —> we look at the intersection of the two sets (all the patterns that can be placed 
+                                at that location and that, "luckily", are available at that same location)
+                                */
+                                const intersectedPatterns = (intersectSets(possiblePatterns, availablePatterns))
+
+                                /**
+                                If they don't intersect (patterns that could have been placed there but are not available) 
+                                it means we ran into a "contradiction". We have to stop the whole WFC algorithm.
+                                */
+                                if (intersectedPatterns.size === 0) {
+                                    console.log('contradiction');
+                                    // Handle the contradiction case here
+                                    // This might involve setting a state, calling a callback, or other actions
+                                    // For example, you might set a state indicating the algorithm should stop
+                                    // setContradictionFound(true);
+                                    return; // Exit the function early if needed
+                                }
+
+                                /**
+                                If, on the contrary, they do intersect -> we update the neighboring cell with that refined 
+                                list of pattern's indices
+                                */
+                                updateWave(neighborElementIndex, intersectedPatterns)
+                                
+                                /**
+                                Because that neighboring cell has been updated, its number of valid patterns has decreased
+                                and its entropy must be updated accordingly.
+                                Note that we're subtracting a small random value to mix things up: sometimes cells we'll
+                                end-up with the same minimum entropy value and this prevent to always select the first one of them.
+                                It's a cosmetic trick to break the monotony of the animation
+                                 */
+                                const currentPatterns = wave.get(neighborElementIndex);
+                                if (currentPatterns) {
+                                    const updatedEntropyValue = currentPatterns.size - Math.random() * 0.1;
+                                    updateEntropyForCell(neighborElementIndex, updatedEntropyValue);
+                                }
+
+                                /**
+                                Finally, and most importantly, we add the index of that neighboring cell to the stack 
+                                so it becomes the next current cell in turns (the one whose neighbors will be updated 
+                                during the next while loop)
+                                */
+                                stack.push(neighborElementIndex)
+                            }
+                            
+                        }
+                    }
+                }
+            }
         }
-    }
+        // #### RENDERING
+        // ''' The collapsed cell will always be filled with the first color (top left corner) of the
+        //     selected pattern '''
+            
+        // fill(patterns[id][0])
+        // rect((emin%w) * xs, (emin/w) * ys, xs, ys)
+        }
 
 
 
