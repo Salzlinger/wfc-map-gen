@@ -1,6 +1,7 @@
 "use client";
 import React, { useRef, useEffect, useState } from "react";
 import useWaveFunctionCollapse from "../index";
+import { error } from "console";
 
 interface CanvasComponentProps {
   outputDimWidth?: number;
@@ -22,7 +23,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
 };
 
 const CanvasComponent = ({
-  outputDimWidth = 96,
+  outputDimWidth = 50,
   outputDimHight = 50,
   sizeFactor = 9,
   patternDim = 3,
@@ -49,7 +50,7 @@ const CanvasComponent = ({
       if (context) {
         setContext(context);
 
-        loadImage("/images/circuit.png")
+        loadImage("/images/flowers.bmp")
           .then((image) => {
             setImageWidth(image.width);
             setImageHeight(image.height);
@@ -62,13 +63,6 @@ const CanvasComponent = ({
             );
             console.log(imageData, "imageData");
             setImageData(imageData);
-            setup(
-              imageData.data,
-              imageData.width,
-              imageData.height,
-              canvasWidth,
-              canvasHeight
-            );
           })
           .catch((error) => {
             console.error("Error loading image", error);
@@ -80,26 +74,60 @@ const CanvasComponent = ({
     }
   }, [outputDimWidth, outputDimHight, sizeFactor]);
 
+  const initSetup = () => {
+    imageData &&
+      setup(
+        imageData.data,
+        imageData.width,
+        imageData.height,
+        canvasWidth,
+        canvasHeight
+      );
+  };
+
   const drawOnCanvas = () => {
+    console.log("fired");
     if (context) {
+      console.log("insdide Context");
+
       // Clear the canvas and set the background color
       context.fillStyle = "#FFFFFF";
       context.fillRect(0, 0, context.canvas.width, context.canvas.height);
 
-      const drawResult = draw();
-      if (drawResult) {
-        const { selectedPattern, entropyMin, cellDimentionX, cellDimentionY } =
-          drawResult;
-        //   Use these variables here
+      try {
+        console.log("inside draw");
+        const drawResult = draw();
+        console.log(drawResult, "draw resutl");
+        if (drawResult) {
+          const {
+            selectedPattern,
+            entropyMin,
+            cellDimentionX,
+            cellDimentionY,
+          } = drawResult;
+          //Use these variables here
+          console.log(selectedPattern[0], "selectedPattern");
 
-        //   Rendering based on the algorithm's output
-        //   Example: Fill a rectangle based on the selected pattern
-        if (selectedPattern) {
-          context.fillStyle = selectedPattern.fillColor; // replace with actual color
-          const x = (entropyMin % outputDimWidth) * cellDimentionX;
-          const y = Math.floor(entropyMin / outputDimWidth) * cellDimentionY;
-          context.fillRect(x, y, cellDimentionX, cellDimentionY);
+          //Rendering based on the algorithm's output
+          //Example: Fill a rectangle based on the selected pattern
+          //   if (selectedPattern && cellDimentionX && cellDimentionY) {
+          //       selectedPattern.forEach((row, rowIndex) => {
+          //         row.forEach((color, colIndex) => {
+          //           // Set the fill style to the RGBA color of the pixel
+          //           context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] / 255})`;
+          //           // Draw the pixel as a small rectangle
+          //           context.fillRect(
+          //             (entropyMin % outputDimWidth) * cellDimentionX + colIndex,
+          //             Math.floor(entropyMin / outputDimWidth) * cellDimentionY + rowIndex,
+          //             1, // width of one pixel
+          //             1  // height of one pixel
+          //           );
+          //         });
+          //       });
+          //     }
         }
+      } catch (error) {
+        console.error(error);
       }
 
       // Note: No need to call ctx.stroke() if no outline is desired (equivalent to noStroke() in Processing)
@@ -107,15 +135,21 @@ const CanvasComponent = ({
   };
 
   // Call the draw function periodically
-  useEffect(() => {
-    const timer = setInterval(() => {
-      drawOnCanvas();
-    }, 1000 / frameRate); // Adjust interval based on desired frame rate
+  //   useEffect(() => {
+  //     const timer = setInterval(() => {
+  //       drawOnCanvas();
+  //     }, 1000 / frameRate); // Adjust interval based on desired frame rate
 
-    return () => clearInterval(timer);
-  }, [context, frameRate]);
+  //     return () => clearInterval(timer);
+  //   }, [context, frameRate]);
 
-  return <canvas ref={canvasRef} />;
+  return (
+    <>
+      <canvas ref={canvasRef} />
+      <button onClick={drawOnCanvas}>draw!</button>
+      <button onClick={initSetup}>setup!</button>
+    </>
+  );
 };
 
 export default CanvasComponent;

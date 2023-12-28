@@ -118,6 +118,45 @@ const useWaveFunctionCollapse = (
     "[0, 1]": 3, // Down
   };
 
+  const arePixelsEqual = (pixel1: number[], pixel2: number[]): boolean => {
+    return (
+      pixel1.length === pixel2.length &&
+      pixel1.every((value, index) => value === pixel2[index])
+    );
+  };
+
+  const isHorizontallyAdjacent = (
+    pattern1: number[][],
+    pattern2: number[][],
+    patternDim: number
+  ): boolean => {
+    for (let i = 0; i < patternDim; i++) {
+      const row = patternDim * i;
+      const rightColumnPixelPattern1 = pattern1[row + patternDim - 1];
+      const leftColumnPixelPattern2 = pattern2[row];
+      if (!arePixelsEqual(rightColumnPixelPattern1, leftColumnPixelPattern2)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const isVerticallyAdjacent = (
+    pattern1: number[][],
+    pattern2: number[][],
+    patternDim: number
+  ): boolean => {
+    for (let i = 0; i < patternDim; i++) {
+      const buttomindex = pattern2.length - 1 - i;
+      const bottomRowPattern1 = pattern1[patternDim - i - 1];
+      const topRowPattern2 = pattern2[buttomindex];
+      if (!arePixelsEqual(bottomRowPattern1, topRowPattern2)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const setup = (
     imageData: Uint8ClampedArray,
     imageWidth: number,
@@ -137,6 +176,7 @@ const useWaveFunctionCollapse = (
     /**
      * dimensions of cells (rect) in output
      */
+    console.log("start setup");
     setCellDimentionX(Math.floor(canvasWidth / outputDimWidth));
     setCellDimentionY(Math.floor(canvasHeight / outputDimHight));
 
@@ -149,6 +189,7 @@ const useWaveFunctionCollapse = (
       }
       kernel.push(row);
     }
+    console.log("kernel created");
 
     /**
      * Stores the different patterns found in input
@@ -158,35 +199,37 @@ const useWaveFunctionCollapse = (
     let allPatterns: number[][][][] = [];
 
     const rotate90 = (matrix: number[][][]): number[][][] => {
-        const rotatedMatrix = [];
-        for (let x = 0; x < matrix[0].length; x++) {
-          const row = [];
-          for (let y = matrix.length - 1; y >= 0; y--) {
-            row.push(matrix[y][x]);
-          }
-          rotatedMatrix.push(row);
+      const rotatedMatrix = [];
+      for (let x = 0; x < matrix[0].length; x++) {
+        const row = [];
+        for (let y = matrix.length - 1; y >= 0; y--) {
+          row.push(matrix[y][x]);
         }
-        return rotatedMatrix;
-      };
-      
+        rotatedMatrix.push(row);
+      }
+      return rotatedMatrix;
+    };
 
-    // Looping over each pixel in the image
+    // Create the NxN pattern (cmat) for each position
     for (let y = 0; y < imageHeight; y++) {
       for (let x = 0; x < imageWidth; x++) {
-        // Create the NxN pattern (cmat) for each position
-        for (let y = 0; y < imageHeight; y++) {
-            for (let x = 0; x < imageWidth; x++) {
-              let cmat: number[][][] = []; // Array to store color data for this pattern
-              kernel.forEach(row => {
-                let patternRow = row.map(offset => {
-                  let pixelX = (x + offset) % imageWidth;
-                  let pixelY = Math.floor((offset + imageWidth * y) / imageWidth) % imageHeight;
-                  let pixelIndex = (pixelY * imageWidth + pixelX) * 4;
-                  return [imageData[pixelIndex], imageData[pixelIndex + 1], imageData[pixelIndex + 2], imageData[pixelIndex + 3]];
-                });
-                cmat.push(patternRow);
-              });
-
+        let cmat: number[][][] = []; // Array to store color data for this pattern
+        kernel.forEach((row) => {
+          let patternRow = row.map((offset) => {
+            let pixelX = (x + offset) % imageWidth;
+            let pixelY =
+              Math.floor((offset + imageWidth * y) / imageWidth) % imageHeight;
+            let pixelIndex = (pixelY * imageWidth + pixelX) * 4;
+            return [
+              imageData[pixelIndex],
+              imageData[pixelIndex + 1],
+              imageData[pixelIndex + 2],
+              imageData[pixelIndex + 3],
+            ];
+          });
+          cmat.push(patternRow);
+        });
+        allPatterns.push(cmat);
         for (let r = 0; r < 4; r++) {
           cmat = rotate90(cmat); // Rotate 90 degrees
           allPatterns.push(cmat);
@@ -195,6 +238,7 @@ const useWaveFunctionCollapse = (
         }
       }
     }
+    console.log("patterns extraced");
 
     /**
         * Stores the different patterns found in input 
@@ -207,22 +251,20 @@ const useWaveFunctionCollapse = (
 
     // Assuming 'all' is an array of 2D arrays (e.g., number[][][])
     // Flatten each 2D pattern into 1D
-    let flattenedAll = allPatterns.map((pattern) =>
-      pattern.flatMap((row) => row)
-    );
-
-    // Create a map to count occurrences
+    // Assuming allPatterns is an array of 3D arrays (number[][][])
     let patternCounts = new Map<string, number>();
 
-    flattenedAll.forEach((pattern) => {
-      // Convert the pattern array to a string to use as a Map key
-      let key = JSON.stringify(pattern);
+    allPatterns.forEach((pattern) => {
+      // Flatten each 3D pattern into a 1D array of RGBA arrays
+      let flattenedPattern = pattern.flatMap((row) => row);
 
-      if (patternCounts.has(key)) {
-        const newPatterKey = patternCounts.get(key);
-        if (newPatterKey) {
-          patternCounts.set(key, newPatterKey + 1);
-        }
+      // Convert the flattened pattern into a JSON string
+      let key = JSON.stringify(flattenedPattern);
+
+      // Count occurrences
+      const newPatternCount = patternCounts.get(key);
+      if (patternCounts.has(key) && newPatternCount !== undefined) {
+        patternCounts.set(key, newPatternCount + 1);
       } else {
         patternCounts.set(key, 1);
       }
@@ -236,8 +278,10 @@ const useWaveFunctionCollapse = (
       JSON.parse(key)
     );
     setPatterns(newPatterns);
+    let initPatterns: Patterns = newPatterns;
     let newFrequencies = Array.from(patternCounts.values());
     setFrequencies(newFrequencies);
+    console.log("unique patterns extracted");
 
     /**
      * Initializes the 'wave', entropy and adjacencies array lists
@@ -250,9 +294,13 @@ const useWaveFunctionCollapse = (
         the patterns
         */
 
+    const patternsAcross = Math.floor(outputDimWidth / patternDim); // Number of patterns that fit horizontally
+    const patternsDown = Math.floor(outputDimHight / patternDim); // Number of patterns that fit vertically
+
     // Populate W with each cell having a set of all possible patterns
-    for (let i = 0; i < outputDimWidth * outputDimHight; i++) {
-      updateWave(
+    let waveInit = new Map();
+    for (let i = 0; i < patternsAcross * patternsDown; i++) {
+      waveInit.set(
         i,
         new Set(
           Array.from({ length: numberOfUniquePatterns }, (_, index) => index)
@@ -275,40 +323,20 @@ const useWaveFunctionCollapse = (
 
     // Populate entropy with numberOfUniquePatterns for each cell
     // call in useEffect
-    const newEntropy = new Map<number, number>();
-    const initializeEntropy = () => {
-      // call in useEffect
-      const newEntropy = new Map<number, number>();
+    const initEntropy = new Map<number, number>();
 
-      // Set initial entropy values
-      for (let i = 0; i < outputDimWidth * outputDimHight; i++) {
-        newEntropy.set(i, numberOfUniquePatterns);
-      }
-
-      // Randomly choose one cell to have lower entropy
-      const randomCellIndex = Math.floor(
-        Math.random() * outputDimWidth * outputDimHight
-      );
-      newEntropy.set(randomCellIndex, numberOfUniquePatterns - 1);
-
-      // Update the state
-      setEntropy(newEntropy);
-    };
-    initializeEntropy();
-
-    // Set initial entropy values
-    for (let i = 0; i < outputDimWidth * outputDimHight; i++) {
-      newEntropy.set(i, numberOfUniquePatterns);
+    for (let i = 0; i < patternsAcross * patternsDown; i++) {
+      initEntropy.set(i, numberOfUniquePatterns);
     }
 
-    // Randomly choose one cell to have lower entropy
-    const randomCellIndex = Math.floor(
-      Math.random() * outputDimWidth * outputDimHight
+    // Randomly choose one pattern to have lower entropy
+    const randomPatternIndex = Math.floor(
+      Math.random() * (patternsAcross * patternsDown)
     );
-    newEntropy.set(randomCellIndex, numberOfUniquePatterns - 1);
+    initEntropy.set(randomPatternIndex, numberOfUniquePatterns - 1);
 
     // Update the state
-    setEntropy(newEntropy);
+    console.log("entropy values initiated");
 
     //
     // for (let i = 0; i < outputDimWidth * outputDimHight; i++) {
@@ -324,13 +352,19 @@ const useWaveFunctionCollapse = (
         the ways that the patterns can be placed near one another. 
         More explanations below
         */
-
+    let initAdjacencies: Adjacencies = [];
     for (let i = 0; i < numberOfUniquePatterns; i++) {
       let adjacencySets: Set<number>[] = directions.map(
         () => new Set<number>()
       );
-      updateAdjacencies(i, adjacencySets);
+      const newAdjacencyMap = new Map<number, Set<number>[]>().set(
+        i,
+        adjacencySets
+      );
+      //   initAdjacencies = [...initAdjacencies];
+      initAdjacencies[i] = newAdjacencyMap;
     }
+    console.log("ajustencys initiated");
 
     // Computation of patterns compatibilities (check if some patterns are adjacent, if so -> store them based on their location)
 
@@ -348,52 +382,52 @@ const useWaveFunctionCollapse = (
             2 = up or North/N
             3 = down or South/S
         */
-
+    console.log("initiated Patterns", initPatterns);
     for (let i = 0; i < numberOfUniquePatterns; i++) {
       for (let j = 0; j < numberOfUniquePatterns; j++) {
         // Check horizontal adjacency (Left and Right)
         if (
-          patterns[i]
-            .slice(0, -patternDim)
-            .every((val, index) => val === patterns[j].slice(patternDim)[index])
+          isHorizontallyAdjacent(initPatterns[i], initPatterns[j], patternDim)
         ) {
           // Access the map for pattern i and pattern j
-          const adjacencyMapI = adjacencies[i];
-          const adjacencyMapJ = adjacencies[j];
+          const adjacencyMapI = initAdjacencies[i];
+          const adjacencyMapJ = initAdjacencies[j];
 
           // Get the adjacency sets for pattern i and j, and update them
           adjacencyMapI?.get(i)?.[0].add(j); // i2 can be to the left of i1
           adjacencyMapJ?.get(j)?.[1].add(i); // i1 can be to the right of i2
+
+          initAdjacencies[i] = adjacencyMapI;
+          initAdjacencies[j] = adjacencyMapJ;
         }
 
         // Check vertical adjacency (Top and Bottom)
         let isTopBottomAdjacent = true;
         for (let row = 0; row < patternDim - 1; row++) {
           if (
-            !patterns[i]
-              .slice(row * patternDim, (row + 1) * patternDim)
-              .every(
-                (val, index) =>
-                  val ===
-                  patterns[j].slice(
-                    (row + 1) * patternDim,
-                    (row + 2) * patternDim
-                  )[index]
-              )
+            isVerticallyAdjacent(initPatterns[i], initPatterns[j], patternDim)
           ) {
             isTopBottomAdjacent = false;
             break;
           }
         }
         if (isTopBottomAdjacent) {
-          const adjacencyMapI = adjacencies[i];
-          const adjacencyMapJ = adjacencies[j];
+          const adjacencyMapI = initAdjacencies[i];
+          const adjacencyMapJ = initAdjacencies[j];
 
           adjacencyMapI?.get(i)?.[2].add(j); // i2 can be above i1
           adjacencyMapJ?.get(j)?.[3].add(i); // i1 can be below i2
+
+          initAdjacencies[i] = adjacencyMapI;
+          initAdjacencies[j] = adjacencyMapJ;
         }
       }
     }
+    console.log("ajustency rules set");
+    setWave(waveInit);
+    setAdjacencies(initAdjacencies);
+    setEntropy(initEntropy);
+    console.log("setup finished");
   };
 
   // DRAW FUNCTIONS
@@ -413,14 +447,16 @@ const useWaveFunctionCollapse = (
   };
 
   const selectRandomPattern = (
-    wave: Wave,
+    w: Wave,
     entropyMin: number | null,
     frequencies: Frequencies
   ): number | null => {
     if (entropyMin) {
-      const possiblePatterns = wave.get(entropyMin);
-
+      const possiblePatterns = w.get(entropyMin);
       if (!possiblePatterns || possiblePatterns.size === 0) {
+        console.log(
+          "PossiblePatterns is false or size 0 inside select Random Pattern"
+        );
         return null;
       }
 
@@ -437,6 +473,7 @@ const useWaveFunctionCollapse = (
       const randomIndex = Math.floor(Math.random() * weightedPatterns.length);
       return weightedPatterns[randomIndex];
     }
+    console.log("no entrpyMin", entropyMin);
     return null;
   };
 
@@ -455,14 +492,24 @@ const useWaveFunctionCollapse = (
   };
 
   const draw = () => {
-    if (!entropy || entropy.size === 0) {
+    let drawWave: Wave = wave;
+    let drawAdjacencies: Adjacencies = adjacencies;
+    let drawEntropy: Entropy = entropy;
+    console.log("init Values:");
+    console.log("Wave", drawWave);
+    console.log("adjacencies", drawAdjacencies);
+    console.log("Entropy", drawEntropy);
+    console.log("start draw");
+    if (!drawEntropy || drawEntropy.size === 0) {
+      console.log("entropy is Empty", drawEntropy);
       return null;
     }
     /**
      * Find cell with minimum non-zero entropy (not collapsed yet).
      */
-    const entropyMin: number | null = findMinEntropyKey(entropy);
+    const entropyMin: number | null = findMinEntropyKey(drawEntropy);
     if (entropyMin === null) {
+      console.log("entropyMin is null", entropyMin);
       return null; // Return null if entropyMin is not found
     }
 
@@ -473,11 +520,13 @@ const useWaveFunctionCollapse = (
         */
 
     const selectedPatternId = selectRandomPattern(
-      wave,
+      drawWave,
       entropyMin,
       frequencies
     );
+    console.log(selectedPatternId);
     if (selectedPatternId === null) {
+      console.log("selectedPatternId is null", selectedPatternId);
       return null; // Return null if no pattern is selected
     }
 
@@ -486,11 +535,19 @@ const useWaveFunctionCollapse = (
         should now only contains the id of the selected pattern
         */
 
-    updateWaveForCell(entropyMin, selectedPatternId);
+    if (selectedPatternId === null) {
+      console.log("selectedPatternId is null", selectedPatternId);
+      return null; // Return null if no pattern is selected
+    }
+
+    // The Wave's subarray corresponding to the cell with min entropy
+    // should now only contains the id of the selected pattern
+    drawWave.set(entropyMin, new Set([selectedPatternId]));
+    console.log("collapsed wave", drawWave.get(entropyMin));
     /**
-        Its key can be deleted in the dict of entropies
-        */
-    entropy.delete(entropyMin);
+    Its key can be deleted in the dict of entropies
+    */
+    drawEntropy.delete(entropyMin);
     /**
         PROPAGATION
         */
@@ -504,6 +561,9 @@ const useWaveFunctionCollapse = (
     let stack: number[] = [entropyMin];
 
     while (stack.length > 0) {
+      console.log("stack length", stack.length);
+      console.log("inside while");
+      console.log(stack);
       /**
             First thing we do is pop() the last index contained in 
             the stack (the only one for now) and get the indices 
@@ -512,21 +572,28 @@ const useWaveFunctionCollapse = (
             they wrap around.
             */
       const currentElementIndex = stack.pop(); // Get the top element of the stack
+      console.log(currentElementIndex);
+      console.log(stack);
       if (currentElementIndex !== undefined) {
         for (const [dx, dy] of directions) {
+          console.log("inside direction", dx, dy);
           const x =
             ((currentElementIndex % outputDimWidth) + dx + outputDimWidth) %
             outputDimWidth;
+          console.log("x", x);
           const y = Math.floor(currentElementIndex / outputDimWidth) + dy;
+          console.log("y", y);
           if (y >= 0 && y < outputDimHight) {
             const neighborElementIndex = x + y * outputDimWidth;
+            console.log("neighborElementIndex", neighborElementIndex);
 
             /**
                         We make sure the neighboring cell is not collapsed yet 
                         (we don't want to update a cell that has only 1 
                         pattern available)
                         */
-            if (entropy.has(neighborElementIndex)) {
+            if (drawEntropy.has(neighborElementIndex)) {
+              console.log("neighbor cell not collapsed yet");
               /**
                             Then we check all the patterns that COULD be placed at 
                             that location. EX: if the neighboring cell is on the left 
@@ -535,30 +602,44 @@ const useWaveFunctionCollapse = (
                             contained in the current cell.
                             */
               let possiblePatterns = new Set<number>();
-              const currentCellPatterns = wave.get(currentElementIndex);
+              const currentCellPatterns = drawWave.get(currentElementIndex);
               if (currentCellPatterns) {
+                console.log("currentCellPatterns", currentCellPatterns);
+                // !!! dir ist fehlerhaft. directional Mapping gibt keine number aus und dir is undefined
                 const dir = directionMapping[JSON.stringify([dx, dy])];
 
                 currentCellPatterns.forEach((idP) => {
-                  const adjacencyMaps = adjacencies[idP];
+                  console.log("idp", idP);
+                  const adjacencyMaps = drawAdjacencies[idP];
                   if (adjacencyMaps) {
+                    console.log("adjacencymaps", adjacencyMaps);
                     const adjacencySet = adjacencyMaps.get(idP);
                     if (adjacencySet) {
+                      console.log("adjacencySet", adjacencySet);
+                      console.log("dir", dir);
                       const possiblePatternsInDirection = adjacencySet[dir];
-                      possiblePatternsInDirection.forEach((pattern) =>
-                        possiblePatterns.add(pattern)
+                      console.log(
+                        "possiblePatternsInDirection",
+                        possiblePatternsInDirection
                       );
+                      possiblePatternsInDirection.forEach((pattern) => {
+                        possiblePatterns.add(pattern);
+                        console.log(pattern);
+                        console.log(possiblePatterns);
+                      });
                     }
                   }
                 });
               }
+              console.log("possible Paterns of neighbor element are set");
 
               /**
                             We also look at the patterns that ARE available in the neighboring cell
                             */
               const availablePatterns: Set<number> = new Set(
-                wave.get(neighborElementIndex) ?? []
+                drawWave.get(neighborElementIndex) ?? []
               );
+              console.log("available Patterns of neigbor element are set");
 
               /**
                             Now we make sure that the neighboring cell really need to be updated. 
@@ -566,6 +647,7 @@ const useWaveFunctionCollapse = (
                             —> there’s no need to update it (the algorithm skip this neighbor and goes on to the next)
                             */
               if (!isSubSetOf(availablePatterns, possiblePatterns)) {
+                console.log("is not subset");
                 /**
                                 If it is not a subset of the possible list:
                                 —> we look at the intersection of the two sets (all the patterns that can be placed 
@@ -593,7 +675,8 @@ const useWaveFunctionCollapse = (
                                 If, on the contrary, they do intersect -> we update the neighboring cell with that refined 
                                 list of pattern's indices
                                 */
-                updateWave(neighborElementIndex, intersectedPatterns);
+                drawWave.set(neighborElementIndex, intersectedPatterns);
+                console.log("new pattern of neighbor set");
 
                 /**
                                 Because that neighboring cell has been updated, its number of valid patterns has decreased
@@ -602,15 +685,13 @@ const useWaveFunctionCollapse = (
                                 end-up with the same minimum entropy value and this prevent to always select the first one of them.
                                 It's a cosmetic trick to break the monotony of the animation
                                     */
-                const currentPatterns = wave.get(neighborElementIndex);
+                const currentPatterns = drawWave.get(neighborElementIndex);
                 if (currentPatterns) {
                   const updatedEntropyValue =
                     currentPatterns.size - Math.random() * 0.1;
-                  updateEntropyForCell(
-                    neighborElementIndex,
-                    updatedEntropyValue
-                  );
+                  drawEntropy.set(neighborElementIndex, updatedEntropyValue);
                 }
+                console.log("updated entropy");
 
                 /**
                                 Finally, and most importantly, we add the index of that neighboring cell to the stack 
@@ -618,6 +699,7 @@ const useWaveFunctionCollapse = (
                                 during the next while loop)
                                 */
                 stack.push(neighborElementIndex);
+                console.log("neighbor Stackpush");
               }
             }
           }
@@ -625,10 +707,17 @@ const useWaveFunctionCollapse = (
       }
     }
 
-    const selectedPattern = patterns[selectedPatternId]
-      ? patterns[selectedPatternId][0]
-      : null;
-
+    // Retrieve the selected pattern as an array of RGBA values
+    const selectedPattern = patterns[selectedPatternId];
+    console.log(selectedPattern, "draw selected pattern");
+    if (!selectedPattern) {
+      console.log("selectedPattern is null", selectedPattern);
+      return null; // Return null if the pattern is not found
+    }
+    setWave(drawWave);
+    setAdjacencies(drawAdjacencies);
+    setEntropy(drawEntropy);
+    console.log("draw finished");
     return {
       selectedPattern: selectedPattern,
       entropyMin: entropyMin,
