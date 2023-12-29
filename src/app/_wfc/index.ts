@@ -294,8 +294,10 @@ const useWaveFunctionCollapse = (
         the patterns
         */
 
-    const patternsAcross = Math.floor(outputDimWidth / patternDim); // Number of patterns that fit horizontally
-    const patternsDown = Math.floor(outputDimHight / patternDim); // Number of patterns that fit vertically
+    // const patternsAcross = Math.floor(outputDimWidth / patternDim); // Number of patterns that fit horizontally
+    // const patternsDown = Math.floor(outputDimHight / patternDim); // Number of patterns that fit vertically
+    const patternsAcross = outputDimWidth; // Number of patterns that fit horizontally
+    const patternsDown = outputDimHight; // Number of patterns that fit vertically
 
     // Populate W with each cell having a set of all possible patterns
     let waveInit = new Map();
@@ -382,7 +384,7 @@ const useWaveFunctionCollapse = (
             2 = up or North/N
             3 = down or South/S
         */
-    console.log("initiated Patterns", initPatterns);
+    console.log("initiated Patterns");
     for (let i = 0; i < numberOfUniquePatterns; i++) {
       for (let j = 0; j < numberOfUniquePatterns; j++) {
         // Check horizontal adjacency (Left and Right)
@@ -491,14 +493,10 @@ const useWaveFunctionCollapse = (
     return intersection;
   };
 
-  const draw = () => {
+  const draw = async () => {
     let drawWave: Wave = wave;
     let drawAdjacencies: Adjacencies = adjacencies;
     let drawEntropy: Entropy = entropy;
-    console.log("init Values:");
-    console.log("Wave", drawWave);
-    console.log("adjacencies", drawAdjacencies);
-    console.log("Entropy", drawEntropy);
     console.log("start draw");
     if (!drawEntropy || drawEntropy.size === 0) {
       console.log("entropy is Empty", drawEntropy);
@@ -543,7 +541,6 @@ const useWaveFunctionCollapse = (
     // The Wave's subarray corresponding to the cell with min entropy
     // should now only contains the id of the selected pattern
     drawWave.set(entropyMin, new Set([selectedPatternId]));
-    console.log("collapsed wave", drawWave.get(entropyMin));
     /**
     Its key can be deleted in the dict of entropies
     */
@@ -561,7 +558,6 @@ const useWaveFunctionCollapse = (
     let stack: number[] = [entropyMin];
 
     while (stack.length > 0) {
-      console.log(stack);
       /**
             First thing we do is pop() the last index contained in 
             the stack (the only one for now) and get the indices 
@@ -570,16 +566,12 @@ const useWaveFunctionCollapse = (
             they wrap around.
             */
       const currentElementIndex = stack.pop(); // Get the top element of the stack
-      console.log(currentElementIndex);
-      console.log(stack);
       if (currentElementIndex !== undefined) {
         for (const [dx, dy] of directions) {
           const x =
             ((currentElementIndex % outputDimWidth) + dx + outputDimWidth) %
             outputDimWidth;
-          console.log("x", x);
           const y = Math.floor(currentElementIndex / outputDimWidth) + dy;
-          console.log("y", y);
           if (y >= 0 && y < outputDimHight) {
             const neighborElementIndex = x + y * outputDimWidth;
 
