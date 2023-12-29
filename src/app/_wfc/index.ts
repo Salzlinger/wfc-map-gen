@@ -561,8 +561,6 @@ const useWaveFunctionCollapse = (
     let stack: number[] = [entropyMin];
 
     while (stack.length > 0) {
-      console.log("stack length", stack.length);
-      console.log("inside while");
       console.log(stack);
       /**
             First thing we do is pop() the last index contained in 
@@ -576,7 +574,6 @@ const useWaveFunctionCollapse = (
       console.log(stack);
       if (currentElementIndex !== undefined) {
         for (const [dx, dy] of directions) {
-          console.log("inside direction", dx, dy);
           const x =
             ((currentElementIndex % outputDimWidth) + dx + outputDimWidth) %
             outputDimWidth;
@@ -585,7 +582,6 @@ const useWaveFunctionCollapse = (
           console.log("y", y);
           if (y >= 0 && y < outputDimHight) {
             const neighborElementIndex = x + y * outputDimWidth;
-            console.log("neighborElementIndex", neighborElementIndex);
 
             /**
                         We make sure the neighboring cell is not collapsed yet 
@@ -593,7 +589,6 @@ const useWaveFunctionCollapse = (
                         pattern available)
                         */
             if (drawEntropy.has(neighborElementIndex)) {
-              console.log("neighbor cell not collapsed yet");
               /**
                             Then we check all the patterns that COULD be placed at 
                             that location. EX: if the neighboring cell is on the left 
@@ -604,34 +599,21 @@ const useWaveFunctionCollapse = (
               let possiblePatterns = new Set<number>();
               const currentCellPatterns = drawWave.get(currentElementIndex);
               if (currentCellPatterns) {
-                console.log("currentCellPatterns", currentCellPatterns);
-                // !!! dir ist fehlerhaft. directional Mapping gibt keine number aus und dir is undefined
-                const dir = directionMapping[JSON.stringify([dx, dy])];
+                const dir = directionMapping[`[${dx}, ${dy}]`];
 
                 currentCellPatterns.forEach((idP) => {
-                  console.log("idp", idP);
                   const adjacencyMaps = drawAdjacencies[idP];
                   if (adjacencyMaps) {
-                    console.log("adjacencymaps", adjacencyMaps);
                     const adjacencySet = adjacencyMaps.get(idP);
                     if (adjacencySet) {
-                      console.log("adjacencySet", adjacencySet);
-                      console.log("dir", dir);
                       const possiblePatternsInDirection = adjacencySet[dir];
-                      console.log(
-                        "possiblePatternsInDirection",
-                        possiblePatternsInDirection
-                      );
                       possiblePatternsInDirection.forEach((pattern) => {
                         possiblePatterns.add(pattern);
-                        console.log(pattern);
-                        console.log(possiblePatterns);
                       });
                     }
                   }
                 });
               }
-              console.log("possible Paterns of neighbor element are set");
 
               /**
                             We also look at the patterns that ARE available in the neighboring cell
@@ -639,7 +621,6 @@ const useWaveFunctionCollapse = (
               const availablePatterns: Set<number> = new Set(
                 drawWave.get(neighborElementIndex) ?? []
               );
-              console.log("available Patterns of neigbor element are set");
 
               /**
                             Now we make sure that the neighboring cell really need to be updated. 
@@ -647,7 +628,6 @@ const useWaveFunctionCollapse = (
                             —> there’s no need to update it (the algorithm skip this neighbor and goes on to the next)
                             */
               if (!isSubSetOf(availablePatterns, possiblePatterns)) {
-                console.log("is not subset");
                 /**
                                 If it is not a subset of the possible list:
                                 —> we look at the intersection of the two sets (all the patterns that can be placed 
@@ -676,7 +656,6 @@ const useWaveFunctionCollapse = (
                                 list of pattern's indices
                                 */
                 drawWave.set(neighborElementIndex, intersectedPatterns);
-                console.log("new pattern of neighbor set");
 
                 /**
                                 Because that neighboring cell has been updated, its number of valid patterns has decreased
@@ -691,7 +670,6 @@ const useWaveFunctionCollapse = (
                     currentPatterns.size - Math.random() * 0.1;
                   drawEntropy.set(neighborElementIndex, updatedEntropyValue);
                 }
-                console.log("updated entropy");
 
                 /**
                                 Finally, and most importantly, we add the index of that neighboring cell to the stack 
@@ -699,7 +677,6 @@ const useWaveFunctionCollapse = (
                                 during the next while loop)
                                 */
                 stack.push(neighborElementIndex);
-                console.log("neighbor Stackpush");
               }
             }
           }

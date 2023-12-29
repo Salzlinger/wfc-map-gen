@@ -106,25 +106,34 @@ const CanvasComponent = ({
             cellDimentionY,
           } = drawResult;
           //Use these variables here
-          console.log(selectedPattern[0], "selectedPattern");
+          console.log(selectedPattern, "selectedPattern");
 
-          //Rendering based on the algorithm's output
-          //Example: Fill a rectangle based on the selected pattern
-          //   if (selectedPattern && cellDimentionX && cellDimentionY) {
-          //       selectedPattern.forEach((row, rowIndex) => {
-          //         row.forEach((color, colIndex) => {
-          //           // Set the fill style to the RGBA color of the pixel
-          //           context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] / 255})`;
-          //           // Draw the pixel as a small rectangle
-          //           context.fillRect(
-          //             (entropyMin % outputDimWidth) * cellDimentionX + colIndex,
-          //             Math.floor(entropyMin / outputDimWidth) * cellDimentionY + rowIndex,
-          //             1, // width of one pixel
-          //             1  // height of one pixel
-          //           );
-          //         });
-          //       });
-          //     }
+          // Rendering based on the algorithm's output
+          // Example: Fill a rectangle based on the selected pattern
+          if (selectedPattern && cellDimentionX && cellDimentionY) {
+            const patternSize = Math.sqrt(selectedPattern.length); // Assuming it's a square pattern (e.g., 3x3)
+            selectedPattern.forEach((pixel, pixelIndex) => {
+              // Calculate row and column indices
+              const rowIndex = Math.floor(pixelIndex / patternSize);
+              const colIndex = pixelIndex % patternSize;
+
+              // Set the fill style to the RGBA color of the pixel
+              context.fillStyle = `rgba(${pixel[0]}, ${pixel[1]}, ${
+                pixel[2]
+              }, ${pixel[3] / 255})`;
+
+              // Calculate the position of the pixel on the canvas
+              const x =
+                (entropyMin % outputDimWidth) * cellDimentionX +
+                colIndex * cellDimentionX;
+              const y =
+                Math.floor(entropyMin / outputDimWidth) * cellDimentionY +
+                rowIndex * cellDimentionY;
+
+              // Draw the pixel as a small rectangle
+              context.fillRect(x, y, cellDimentionX, cellDimentionY);
+            });
+          }
         }
       } catch (error) {
         console.error(error);
