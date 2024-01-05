@@ -109,13 +109,13 @@ const CanvasComponent = ({
             // Calculate the position of the pixel on the canvas
             const x =
               (entropyMin % outputDimWidth) * cellDimentionX +
-              colIndex * cellDimentionX;
+              colIndex * patternDim;
             const y =
               Math.floor(entropyMin / outputDimWidth) * cellDimentionY +
-              rowIndex * cellDimentionY;
+              rowIndex * patternDim;
 
             // Draw the pixel as a small rectangle
-            context.fillRect(x, y, cellDimentionX, cellDimentionY);
+            context.fillRect(x, y, patternDim, patternDim);
           });
           setDrawnPatterns([...drawnPatterns, drawResult]);
         }
@@ -133,7 +133,7 @@ const CanvasComponent = ({
     let loop = true;
     while (loop) {
       const result = await drawOnCanvas();
-      console.log(result);
+      // console.log(result);
       if (!result) {
         loop = false;
       }

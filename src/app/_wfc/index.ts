@@ -125,32 +125,71 @@ const useWaveFunctionCollapse = (
     );
   };
 
+  // const isHorizontallyAdjacent = (
+  //   pattern1: number[][],
+  //   pattern2: number[][],
+  //   patternDim: number
+  // ): boolean => {
+  //   for (let i = 0; i < patternDim; i++) {
+  //     const row = patternDim * i;
+  //     const rightColumnPixelPattern1 = pattern1[row + patternDim - 1];
+  //     const leftColumnPixelPattern2 = pattern2[row];
+  //     if (!arePixelsEqual(pattern1[i], pattern2[i])) {
+  //       return false;
+  //     }
+  //   }
+  //   return true;
+  // };
+
   const isHorizontallyAdjacent = (
     pattern1: number[][],
     pattern2: number[][],
-    patternDim: number
+    N: number
   ): boolean => {
-    for (let i = 0; i < patternDim; i++) {
-      const row = patternDim * i;
-      const rightColumnPixelPattern1 = pattern1[row + patternDim - 1];
-      const leftColumnPixelPattern2 = pattern2[row];
-      if (!arePixelsEqual(rightColumnPixelPattern1, leftColumnPixelPattern2)) {
+    for (let i = 0; i < pattern1.length; i++) {
+      // Skip the last column of pattern1 and the first column of pattern2
+      if (i % N === N - 1 || i % N === 0) {
+        continue;
+      }
+
+      // Compare the corresponding elements of the two patterns
+      if (!arePixelsEqual(pattern1[i], pattern2[i])) {
         return false;
       }
     }
     return true;
   };
 
+  // const isVerticallyAdjacent = (
+  //   pattern1: number[][],
+  //   pattern2: number[][],
+  //   patternDim: number
+  // ): boolean => {
+  //   for (let i = 0; i < patternDim; i++) {
+  //     const buttomindex = pattern2.length - 1 - i;
+  //     const bottomRowPattern1 = pattern1[patternDim - i - 1];
+  //     const topRowPattern2 = pattern2[buttomindex];
+  //     if (!arePixelsEqual(topOfPattern1[i], topbottomOfPattern2[i])) {
+  //       return false;
+  //     }
+  //   }
+  //   return true;
+  // };
+
   const isVerticallyAdjacent = (
     pattern1: number[][],
     pattern2: number[][],
-    patternDim: number
+    N: number
   ): boolean => {
-    for (let i = 0; i < patternDim; i++) {
-      const buttomindex = pattern2.length - 1 - i;
-      const bottomRowPattern1 = pattern1[patternDim - i - 1];
-      const topRowPattern2 = pattern2[buttomindex];
-      if (!arePixelsEqual(bottomRowPattern1, topRowPattern2)) {
+    // Get the first N-1 rows of pattern1
+    let topOfPattern1 = pattern1.slice(0, N * N - N);
+
+    // Get the last N-1 rows of pattern2
+    let bottomOfPattern2 = pattern2.slice(N);
+
+    // Compare the slices for equality
+    for (let i = 0; i < topOfPattern1.length; i++) {
+      if (!arePixelsEqual(topOfPattern1[i], bottomOfPattern2[i])) {
         return false;
       }
     }
@@ -176,7 +215,7 @@ const useWaveFunctionCollapse = (
     /**
      * dimensions of cells (rect) in output
      */
-    console.log("start setup");
+    // console.log("start setup");
     setCellDimentionX(Math.floor(canvasWidth / outputDimWidth));
     setCellDimentionY(Math.floor(canvasHeight / outputDimHight));
 
@@ -230,12 +269,12 @@ const useWaveFunctionCollapse = (
           cmat.push(patternRow);
         });
         allPatterns.push(cmat);
-        for (let r = 0; r < 4; r++) {
-          cmat = rotate90(cmat); // Rotate 90 degrees
-          allPatterns.push(cmat);
-          allPatterns.push(cmat.slice().reverse()); // Vertical flip
-          allPatterns.push(cmat.map((row) => row.slice().reverse())); // Horizontal flip
-        }
+        // for (let r = 0; r < 4; r++) {
+        //   cmat = rotate90(cmat); // Rotate 90 degrees
+        //   allPatterns.push(cmat);
+        //   allPatterns.push(cmat.slice().reverse()); // Vertical flip
+        //   allPatterns.push(cmat.map((row) => row.slice().reverse())); // Horizontal flip
+        // }
       }
     }
     console.log("patterns extraced");
@@ -354,17 +393,12 @@ const useWaveFunctionCollapse = (
         the ways that the patterns can be placed near one another. 
         More explanations below
         */
-    let initAdjacencies: Adjacencies = [];
+    let initAdjacencies: Adjacencies = new Map<number, Set<number>[]>();
     for (let i = 0; i < numberOfUniquePatterns; i++) {
       let adjacencySets: Set<number>[] = directions.map(
         () => new Set<number>()
       );
-      const newAdjacencyMap = new Map<number, Set<number>[]>().set(
-        i,
-        adjacencySets
-      );
-      //   initAdjacencies = [...initAdjacencies];
-      initAdjacencies[i] = newAdjacencyMap;
+      initAdjacencies.set(i, adjacencySets);
     }
     console.log("ajustencys initiated");
 
@@ -384,6 +418,7 @@ const useWaveFunctionCollapse = (
             2 = up or North/N
             3 = down or South/S
         */
+    console.log(numberOfUniquePatterns, "numberofunique");
     console.log("initiated Patterns");
     for (let i = 0; i < numberOfUniquePatterns; i++) {
       for (let j = 0; j < numberOfUniquePatterns; j++) {
@@ -391,37 +426,32 @@ const useWaveFunctionCollapse = (
         if (
           isHorizontallyAdjacent(initPatterns[i], initPatterns[j], patternDim)
         ) {
+          console.log("horizontal found");
           // Access the map for pattern i and pattern j
-          const adjacencyMapI = initAdjacencies[i];
-          const adjacencyMapJ = initAdjacencies[j];
+          // const adjacencyMapI = initAdjacencies[i];
+          // const adjacencyMapJ = initAdjacencies[j];
 
           // Get the adjacency sets for pattern i and j, and update them
-          adjacencyMapI?.get(i)?.[0].add(j); // i2 can be to the left of i1
-          adjacencyMapJ?.get(j)?.[1].add(i); // i1 can be to the right of i2
+          initAdjacencies.get(i)?.[0].add(j); // i2 can be to the left of i1
+          console.log(`added ${i} to the left of ${j}`);
+          console.log(initAdjacencies.get(i));
+          initAdjacencies.get(j)?.[1].add(i); // i1 can be to the right of i2
 
-          initAdjacencies[i] = adjacencyMapI;
-          initAdjacencies[j] = adjacencyMapJ;
+          // initAdjacencies[i] = adjacencyMapI;
+          // initAdjacencies[j] = adjacencyMapJ;
         }
+        if (
+          isVerticallyAdjacent(initPatterns[i], initPatterns[j], patternDim)
+        ) {
+          // console.log("vertical found");
+          // const adjacencyMapI = initAdjacencies[i];
+          // const adjacencyMapJ = initAdjacencies[j];
 
-        // Check vertical adjacency (Top and Bottom)
-        let isTopBottomAdjacent = true;
-        for (let row = 0; row < patternDim - 1; row++) {
-          if (
-            isVerticallyAdjacent(initPatterns[i], initPatterns[j], patternDim)
-          ) {
-            isTopBottomAdjacent = false;
-            break;
-          }
-        }
-        if (isTopBottomAdjacent) {
-          const adjacencyMapI = initAdjacencies[i];
-          const adjacencyMapJ = initAdjacencies[j];
+          initAdjacencies?.get(i)?.[2].add(j); // i2 can be above i1
+          initAdjacencies?.get(j)?.[3].add(i); // i1 can be below i2
 
-          adjacencyMapI?.get(i)?.[2].add(j); // i2 can be above i1
-          adjacencyMapJ?.get(j)?.[3].add(i); // i1 can be below i2
-
-          initAdjacencies[i] = adjacencyMapI;
-          initAdjacencies[j] = adjacencyMapJ;
+          // initAdjacencies[i] = adjacencyMapI;
+          // initAdjacencies[j] = adjacencyMapJ;
         }
       }
     }
@@ -522,7 +552,7 @@ const useWaveFunctionCollapse = (
       entropyMin,
       frequencies
     );
-    console.log(selectedPatternId);
+    // console.log(selectedPatternId);
     if (selectedPatternId === null) {
       console.log("selectedPatternId is null", selectedPatternId);
       return null; // Return null if no pattern is selected
@@ -594,11 +624,10 @@ const useWaveFunctionCollapse = (
                 const dir = directionMapping[`[${dx}, ${dy}]`];
 
                 currentCellPatterns.forEach((idP) => {
-                  const adjacencyMaps = drawAdjacencies[idP];
+                  const adjacencyMaps = drawAdjacencies.get(idP);
                   if (adjacencyMaps) {
-                    const adjacencySet = adjacencyMaps.get(idP);
-                    if (adjacencySet) {
-                      const possiblePatternsInDirection = adjacencySet[dir];
+                    const possiblePatternsInDirection = adjacencyMaps[dir];
+                    if (possiblePatternsInDirection) {
                       possiblePatternsInDirection.forEach((pattern) => {
                         possiblePatterns.add(pattern);
                       });
@@ -678,7 +707,6 @@ const useWaveFunctionCollapse = (
 
     // Retrieve the selected pattern as an array of RGBA values
     const selectedPattern = patterns[selectedPatternId];
-    console.log(selectedPattern, "draw selected pattern");
     if (!selectedPattern) {
       console.log("selectedPattern is null", selectedPattern);
       return null; // Return null if the pattern is not found
@@ -686,7 +714,7 @@ const useWaveFunctionCollapse = (
     setWave(drawWave);
     setAdjacencies(drawAdjacencies);
     setEntropy(drawEntropy);
-    console.log("draw finished");
+    // console.log("draw finished");
     return {
       selectedPattern: selectedPattern,
       entropyMin: entropyMin,
